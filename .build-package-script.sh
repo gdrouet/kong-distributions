@@ -35,7 +35,7 @@ LUAJIT_VERSION=2.1.0-beta2
 PCRE_VERSION=8.40
 LUAROCKS_VERSION=2.4.2
 OPENRESTY_VERSION=1.11.2.2
-OPENSSL_VERSION=1.0.2k
+OPENSSL_VERSION=1.0.2l
 SERF_VERSION=0.7.0
 
 # Variables to be used in the build process
@@ -66,7 +66,7 @@ if [ "$(uname)" = "Darwin" ]; then
   FINAL_BUILD_OUTPUT="$DIR/build-output"
 elif hash yum 2>/dev/null; then
   yum -y install epel-release
-  yum -y install wget tar make curl ldconfig gcc perl pcre-devel openssl-devel ldconfig unzip git rpm-build ncurses-devel which lua-$LUA_VERSION lua-devel-$LUA_VERSION gpg pkgconfig xz-devel ruby-devel
+  yum -y install wget tar make curl ldconfig gcc perl pcre-devel openssl-devel ldconfig unzip git rpm-build ncurses-devel which lua-$LUA_VERSION lua-devel-$LUA_VERSION gpg pkgconfig xz-devel ruby-devel gcc gcc-c++
 
   FPM_PARAMS="-d 'epel-release' -d 'openssl' -d 'pcre' -d 'perl'"
   if [[ $IS_AWS == true ]]; then
@@ -90,7 +90,7 @@ elif hash yum 2>/dev/null; then
   PACKAGE_TYPE="rpm"
   LUA_MAKE="linux"
 elif hash apt-get 2>/dev/null; then
-  apt-get update && apt-get -y --force-yes install wget curl gnupg tar make gcc libreadline-dev libncurses5-dev libpcre3-dev libssl-dev perl unzip git lua${LUA_VERSION%.*} liblua${LUA_VERSION%.*}-0-dev lsb-release
+  apt-get update && apt-get -y --force-yes install build-essential wget curl gnupg tar make gcc libreadline-dev libncurses5-dev libpcre3-dev libssl-dev perl unzip git lua${LUA_VERSION%.*} liblua${LUA_VERSION%.*}-0-dev lsb-release
 
   # Install Ruby for fpm
   cd $TMP
@@ -115,11 +115,13 @@ fi
 export PATH=$PATH:${OUT}/usr/local/bin:$(gem environment | awk -F': *' '/EXECUTABLE DIRECTORY/ {print $2}')
 
 # Check if the Kong version exists
-if ! [ `curl -s -o /dev/null -w "%{http_code}" https://github.com/Mashape/kong/tree/$KONG_BRANCH` == "200" ]; then
-  echo "Kong version \"$KONG_BRANCH\" doesn't exist!"
-  exit 1
-else
-  echo "Building Kong: $KONG_BRANCH"
+if [[ ! $KONG_BRANCH = "dir" ]]; then
+  if ! [ `curl -s -o /dev/null -w "%{http_code}" https://github.com/Mashape/kong/tree/$KONG_BRANCH` == "200" ]; then
+    echo "Kong version \"$KONG_BRANCH\" doesn't exist!"
+    exit 1
+  else
+    echo "Building Kong: $KONG_BRANCH"
+  fi
 fi
 
 # Download OpenSSL
@@ -228,9 +230,15 @@ cp serf $OUT/usr/local/bin/
 
 # Install Kong
 cd $TMP
-git clone https://github.com/Mashape/kong.git
+if [[ $KONG_BRANCH = "dir" ]]; then
+  cp -R /build-data/kong-copy kong
+else
+  git clone https://github.com/Mashape/kong.git
+fi
 cd kong
-git checkout $KONG_BRANCH
+if [[ ! $KONG_BRANCH = "dir" ]]; then
+  git checkout $KONG_BRANCH
+fi
 $OUT/usr/local/bin/luarocks make kong-*.rockspec $LUAROCKS_PARAMS
 
 # Extract the version from the rockspec file

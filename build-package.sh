@@ -14,24 +14,29 @@ This script build Kong in different distributions
 
 OPTIONS:
  -h      Show this message
- -k      Kong version to build
+ -k      Kong GitHub branch/tag to build. At least -k or -d needs to be specified.
+ -d      Kong directory to build. At least -k or -d needs to be specified.
  -p      Platforms to target
  -t      Execute tests
 EOF
 }
 
 ARG_PLATFORMS=
-KONG_VERSION=
+KONG_BRANCH=
+KONG_DIRECTORY=
 TEST=false
-while getopts "hk:p:t" OPTION
+while getopts "hk:d:p:t" OPTION
 do
   case $OPTION in
     h)
       usage
       exit 1
       ;;
+    d) 
+      KONG_DIRECTORY=$OPTARG
+      ;;
     k)
-      KONG_VERSION=$OPTARG
+      KONG_BRANCH=$OPTARG
       ;;
     p)
       ARG_PLATFORMS=$OPTARG
@@ -46,9 +51,19 @@ do
   esac
 done
 
-if [[ -z $ARG_PLATFORMS ]] || [[ -z $KONG_VERSION ]]; then
+if [[ -z $ARG_PLATFORMS || -z "${KONG_DIRECTORY}${KONG_BRANCH}" ]]; then
   usage
   exit 1
+fi
+
+if [[ ! -z $KONG_DIRECTORY && ! -z $KONG_BRANCH ]]; then
+  echo "You cannot set both a GitHub tag and a directory"
+  exit 1
+fi
+
+IS_DIR=false
+if [[ ! -z $KONG_DIRECTORY ]]; then
+  IS_DIR=true
 fi
 
 # Check system
@@ -82,8 +97,6 @@ if [ ${#platforms_to_build[@]} -eq 0 ]; then
   exit 1
 fi
 
-echo "Building Kong $KONG_VERSION: "$( IFS=$'\n'; echo "${platforms_to_build[*]}" )
-
 ##############################################################
 #                        Start Build                         #
 ##############################################################
@@ -93,6 +106,18 @@ DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 echo "Current directory is: "$DIR
 if [ "$DIR" == "/" ]; then
   DIR=""
+fi
+
+if [[ $IS_DIR == true ]]; then
+  rm -rf $DIR/kong-copy
+  mkdir $DIR/kong-copy
+  cp -R $KONG_DIRECTORY/* $DIR/kong-copy
+
+  echo "cp -R $KONG_DIRECTORY $DIR/kong-copy"
+  KONG_BRANCH="dir"
+  echo "Building from Kong directory: "$( IFS=$'\n'; echo "${platforms_to_build[*]}" )
+else
+  echo "Building Kong from branch/tag $KONG_BRANCH: "$( IFS=$'\n'; echo "${platforms_to_build[*]}" )
 fi
 
 # Delete previous packages
@@ -109,12 +134,12 @@ do
 
   echo "Building for $i"
   if [[ "$i" == "osx" ]]; then
-    /bin/bash $DIR/.build-package-script.sh ${KONG_VERSION}
+    /bin/bash $DIR/.build-package-script.sh ${KONG_BRANCH}
   elif [[ "$i" == "aws" ]]; then
     echo "TODO: Build on AWS Linux AMI!"
   else
     docker pull $i # Because of https://github.com/CentOS/CentOS-Dockerfiles/issues/33
-    docker run -v $DIR/:/build-data $i /bin/bash -c "/build-data/.build-package-script.sh ${KONG_VERSION}"
+    docker run -v $DIR/:/build-data $i /bin/bash -c "/build-data/.build-package-script.sh ${KONG_BRANCH}"
   fi
   if [ $? -ne 0 ]; then
     echo "Error building for $i"

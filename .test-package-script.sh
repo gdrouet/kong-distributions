@@ -37,7 +37,7 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-export KONG_PG_HOST=kong-distributions-test.cyvnqxz6izox.us-east-1.rds.amazonaws.com 
+export KONG_PG_HOST=kong-distributions.cnc7tkeqsmj9.us-east-1.rds.amazonaws.com
 export KONG_PG_PORT=5432 
 export KONG_PG_USER=kong 
 export KONG_PG_PASSWORD=kongpassword 
