@@ -263,7 +263,7 @@ post_install_script=$(mktemp $MKTEMP_POSTSCRIPT_CONF)
 echo "#!/bin/sh
 mkdir -p /etc/kong
 mv /usr/local/lib/luarocks/rocks/kong/$rockspec_version/kong.conf.default /etc/kong/kong.conf.default
-chmod -R 777 /usr/local/kong/
+chmod -R 771 /usr/local/kong/
 " > $post_install_script
 
 ##############################################################
